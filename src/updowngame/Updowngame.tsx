@@ -1,109 +1,58 @@
-import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { type ChangeEvent, type KeyboardEvent, useCallback, useState } from 'react'
+import { useCountdownTimer } from './hooks/useCountdownTimer'
+import { totalQuestions, useGameViewState } from './hooks/useGameViewState'
 
-interface Question {
-  original: number
-  flipped: number
-}
-
-const questions: Question[] = [
-  { original: 18, flipped: 81 },
-  { original: 96, flipped: 96 },
-  { original: 25, flipped: 52 },
-  { original: 69, flipped: 69 },
-  { original: 81, flipped: 18 },
-  { original: 52, flipped: 25 },
-]
-
-const totalQuestions = questions.length
 const initialTime = 120
-
-function formatTime(seconds: number) {
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
-}
-
-function getTimeChipClasses(timeLeft: number) {
-  return timeLeft <= 20
-    ? 'border-rose-200 bg-rose-50 text-rose-700'
-    : 'border-slate-200 bg-white text-slate-800'
-}
-
-function getFeedbackClasses(message: string) {
-  if (!message) {
-    return 'border-slate-200 bg-slate-50 text-slate-500'
-  }
-
-  if (message.startsWith('Correct')) {
-    return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-  }
-
-  if (message.startsWith('Wrong')) {
-    return 'border-rose-200 bg-rose-50 text-rose-700'
-  }
-
-  if (message.startsWith('Time is up')) {
-    return 'border-amber-200 bg-amber-50 text-amber-800'
-  }
-
-  return 'border-sky-200 bg-sky-50 text-slate-700'
-}
 
 export default function Updowngame() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(initialTime)
   const [gameActive, setGameActive] = useState(true)
   const [userAnswer, setUserAnswer] = useState('')
   const [message, setMessage] = useState('')
-  const timerRef = useRef<number | null>(null)
-  const scoreRef = useRef(score)
 
-  const currentQuestion = questions[currentIndex]
-  const isGameFinished = currentIndex >= totalQuestions
-  const roundNumber = Math.min(currentIndex + 1, totalQuestions)
-  const progress = Math.round((score / totalQuestions) * 100)
-
-  useEffect(() => {
-    scoreRef.current = score
+  const handleTimerExpire = useCallback(() => {
+    setGameActive(false)
+    setMessage(`Time is up! Click Replay to try again. Points: ${score} / ${totalQuestions}`)
   }, [score])
 
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = null
-  }, [])
+  const {
+    clearTimer,
+    resetTimer,
+    startTimer,
+    timeLeft,
+  } = useCountdownTimer({
+    initialTime,
+    onExpire: handleTimerExpire,
+  })
 
-  const startTimer = useCallback(() => {
-    clearTimer()
-    timerRef.current = window.setInterval(() => {
-      setTimeLeft((previousTime) => {
-        if (previousTime <= 1) {
-          clearTimer()
-          setGameActive(false)
-          setMessage(`Time is up! Click Replay to try again. Points: ${scoreRef.current} / ${totalQuestions}`)
-          return 0
-        }
+  const {
+    currentQuestion,
+    feedbackClasses,
+    formattedTime,
+    isGameFinished,
+    isInputDisabled,
+    progress,
+    roundNumber,
+    timeChipClasses,
+  } = useGameViewState({
+    currentIndex,
+    gameActive,
+    message,
+    score,
+    timeLeft,
+  })
 
-        return previousTime - 1
-      })
-    }, 1000)
-  }, [clearTimer])
+  const endGame = useCallback(
+    (reason: string) => {
+      if (!gameActive) return
 
-  useEffect(() => {
-    startTimer()
-
-    return () => {
+      setGameActive(false)
       clearTimer()
-    }
-  }, [clearTimer, startTimer])
-
-  const endGame = useCallback((reason: string) => {
-    if (!gameActive) return
-
-    setGameActive(false)
-    clearTimer()
-    setMessage(`${reason} Final score: ${score} out of ${totalQuestions}. Press Replay to try again.`)
-  }, [clearTimer, gameActive, score])
+      setMessage(`${reason} Final score: ${score} out of ${totalQuestions}. Press Replay to try again.`)
+    },
+    [clearTimer, gameActive, score],
+  )
 
   const winGame = useCallback(() => {
     if (!gameActive) return
@@ -131,7 +80,7 @@ export default function Updowngame() {
       setMessage('Correct! Move on to the next one.')
       setUserAnswer('')
 
-      if (nextIndex < questions.length) {
+      if (nextIndex < totalQuestions) {
         setCurrentIndex(nextIndex)
       } else {
         winGame()
@@ -140,33 +89,32 @@ export default function Updowngame() {
     }
 
     endGame(`Wrong! The correct number was ${correctOriginal}. Game over.`)
-  }, [currentIndex, currentQuestion.original, endGame, gameActive, isGameFinished, userAnswer, winGame])
+  }, [currentIndex, currentQuestion.original, endGame, gameActive, isGameFinished, score, userAnswer, winGame])
 
   const resetGame = useCallback(() => {
     clearTimer()
+    resetTimer()
 
     setCurrentIndex(0)
     setScore(0)
-    setTimeLeft(initialTime)
     setGameActive(true)
     setUserAnswer('')
     setMessage('')
     startTimer()
-  }, [clearTimer, startTimer])
+  }, [clearTimer, resetTimer, startTimer])
 
   const handleAnswerChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     setUserAnswer(event.target.value)
   }, [])
 
-  const handleKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      checkAnswer()
-    }
-  }, [checkAnswer])
-
-  const isInputDisabled = !gameActive || isGameFinished
-  const timeChipClasses = getTimeChipClasses(timeLeft)
-  const feedbackClasses = getFeedbackClasses(message)
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        checkAnswer()
+      }
+    },
+    [checkAnswer],
+  )
 
   return (
     <div
@@ -201,7 +149,7 @@ export default function Updowngame() {
             <span
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold ${timeChipClasses}`}
             >
-              Time <span id="timer">{formatTime(timeLeft)}</span>
+              Time <span id="timer">{formattedTime}</span>
             </span>
           </div>
         </div>
@@ -227,9 +175,7 @@ export default function Updowngame() {
         The number is flipped. What is the real number?
       </div>
 
-      <div
-        className="mb-4 rounded-[1.75rem] border border-slate-800/5 bg-[linear-gradient(180deg,#0f172a,#1e293b)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_40px_rgba(15,23,42,0.2)]"
-      >
+      <div className="mb-4 rounded-[1.75rem] border border-slate-800/5 bg-[linear-gradient(180deg,#0f172a,#1e293b)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_40px_rgba(15,23,42,0.2)]">
         <div className="mb-3 flex items-center justify-between px-1 text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-300">
           <span>Mirror display</span>
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.68rem] tracking-[0.2em] text-slate-200">
