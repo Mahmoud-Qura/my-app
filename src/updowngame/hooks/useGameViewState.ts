@@ -1,11 +1,21 @@
 import { useMemo } from 'react'
+import classNames from 'classnames'
 
 export interface Question {
   original: number
   flipped: number
 }
 
-const questions: Question[] = [
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+const questionsData: Question[] = [
   { original: 18, flipped: 81 },
   { original: 96, flipped: 96 },
   { original: 25, flipped: 52 },
@@ -13,6 +23,8 @@ const questions: Question[] = [
   { original: 81, flipped: 18 },
   { original: 52, flipped: 25 },
 ]
+
+const questions = shuffleArray(questionsData)
 
 const totalQuestions = questions.length
 
@@ -23,29 +35,26 @@ function formatTime(seconds: number) {
 }
 
 function getTimeChipClasses(timeLeft: number) {
-  return timeLeft <= 20
-    ? 'border-rose-200 bg-rose-50 text-rose-700'
-    : 'border-slate-200 bg-white text-slate-800'
+  return classNames({
+    'border-rose-200 bg-rose-50 text-rose-700': timeLeft <= 20,
+    'border-slate-200 bg-white text-slate-800': timeLeft > 20,
+  })
 }
 
 function getFeedbackClasses(message: string) {
-  if (!message) {
-    return 'border-slate-200 bg-slate-50 text-slate-500'
-  }
+  const isEmpty = !message
+  const isCorrect = !!message && message.startsWith('Correct')
+  const isWrong = !!message && message.startsWith('Wrong')
+  const isTimeUp = !!message && message.startsWith('Time is up')
+  const isInfo = !isEmpty && !isCorrect && !isWrong && !isTimeUp
 
-  if (message.startsWith('Correct')) {
-    return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-  }
-
-  if (message.startsWith('Wrong')) {
-    return 'border-rose-200 bg-rose-50 text-rose-700'
-  }
-
-  if (message.startsWith('Time is up')) {
-    return 'border-amber-200 bg-amber-50 text-amber-800'
-  }
-
-  return 'border-sky-200 bg-sky-50 text-slate-700'
+  return classNames({
+    'border-slate-200 bg-slate-50 text-slate-500': isEmpty,
+    'border-emerald-200 bg-emerald-50 text-emerald-700': isCorrect,
+    'border-rose-200 bg-rose-50 text-rose-700': isWrong,
+    'border-amber-200 bg-amber-50 text-amber-800': isTimeUp,
+    'border-sky-200 bg-sky-50 text-slate-700': isInfo,
+  })
 }
 
 interface UseGameViewStateArgs {

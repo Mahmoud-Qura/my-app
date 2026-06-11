@@ -1,4 +1,5 @@
 import { type ChangeEvent, type KeyboardEvent, useCallback, useState } from 'react'
+import classNames from 'classnames'
 import { useCountdownTimer } from './hooks/useCountdownTimer'
 import { totalQuestions, useGameViewState } from './hooks/useGameViewState'
 
@@ -147,7 +148,7 @@ export default function Updowngame() {
               Points <span id="score" className="text-slate-900">{score}</span> / {totalQuestions}
             </span>
             <span
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold ${timeChipClasses}`}
+              className={classNames('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold', timeChipClasses)}
             >
               Time <span id="timer">{formattedTime}</span>
             </span>
@@ -215,7 +216,7 @@ export default function Updowngame() {
         </div>
       </div>
 
-      <div id="message" aria-live="polite" className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm ${feedbackClasses}`}>
+      <div id="message" aria-live="polite" className={classNames('mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm', feedbackClasses)}>
         {message}
       </div>
     </div>
